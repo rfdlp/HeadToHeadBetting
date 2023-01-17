@@ -42,14 +42,6 @@ contract HeadToHeadBetting {
         require(payable(msg.sender) == contractOwner, "Only contract owner can finish a round.");
         require(player1 != address(0) && player2 != address(0), "No round in progress.");
         pot = bet1 + bet2;
-        uint winner = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty))) % 2;
-        if (winner == 0) {
-            player1.transfer(pot * 9 / 10);
-            playerRounds[player1]++;
-        } else {
-            player2.transfer(pot * 9 / 10);
-            playerRounds[player2]++;
-        }
         totalRounds++;
         contractBalance += pot * 1 / 40;
         weeklyRaffleBalance += pot * 3 / 40;
@@ -57,10 +49,24 @@ contract HeadToHeadBetting {
         weeklyPlayerCount++;
         weeklyRafflePlayers[raffleBatchNumber][weeklyPlayerCount] = player2;
         weeklyPlayerCount++;
+        address payable payout1 = player1;
+        address payable payout2 = player2;
         player1 = payable(address(0));
         player2 = payable(address(0));
         bet1 = 0;
         bet2 = 0;
+
+        uint winner = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty))) % 2;
+        if (winner == 0) {
+            (bool success, ) = payout1.call{value:(pot * 9 / 10)}("");
+            require(success, "Transfer failed.");
+
+            playerRounds[payout1]++;
+        } else {
+            (bool success, ) = payout2.call{value:(pot * 9 / 10)}("");
+            require(success, "Transfer failed.");
+            playerRounds[payout2]++;
+        }
     }
     function pauseGame() public {
         require(msg.sender == contractOwner, "Only contract owner can pause the game.");
@@ -76,17 +82,23 @@ contract HeadToHeadBetting {
         require(msg.sender == contractOwner, "Only contract owner can run the raffle.");
         require(weeklyPlayerCount > 0, "No players in the raffle pool.");
         require(weeklyRaffleBalance > 0, "No funds in the raffle pool.");
+
         uint winnerIndex = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty))) % weeklyPlayerCount;
         address payable winner = payable(weeklyRafflePlayers[raffleBatchNumber][winnerIndex]);
-        winner.transfer(weeklyRaffleBalance);
+
+        uint rafflePayout = weeklyRaffleBalance;
         weeklyRaffleBalance = 0;
         weeklyPlayerCount = 0;
         raffleBatchNumber++;
+
+        (bool success, ) = winner.call{value:rafflePayout}("");
+        require(success, "Transfer failed.");
     }
 
     function withdraw() public {
         require(msg.sender == contractOwner, "Only contract owner can withdraw funds.");
         require(contractBalance > 0, "There are no funds to withdraw.");
+
         contractOwner.transfer(contractBalance);
         contractBalance = 0;
     }

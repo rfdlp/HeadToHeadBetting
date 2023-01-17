@@ -110,6 +110,12 @@ module.exports = {
       timeoutBlocks: 200,
       skipDryRun: true,
     },
+    exosama: {
+      provider: () => new HDWalletProvider(MNEMONIC, `https://rpc.exosama.com`),
+      network_id: 2109,
+      confirmations: 2,
+      timeoutBlocks: 200,
+    },
     //
     // Useful for private networks
     // private: {
